@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Doas y Desistimientos · EVVO</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0f11;
+    --surface: #161719;
+    --surface2: #1e2024;
+    --border: #2a2c31;
+    --text: #f0f0ee;
+    --muted: #6b6e78;
+    --ok: #22c97a;
+    --ok-bg: #0d2e1e;
+    --ok-border: #1a5438;
+    --late: #f04f4f;
+    --late-bg: #2e0d0d;
+    --late-border: #541a1a;
+    --rec: #4f9ef0;
+    --rec-bg: #0d1e2e;
+    --rec-border: #1a3854;
+    --accent: #f5c842;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Syne',sans-serif; min-height:100vh; padding:2.5rem; }
+
+  .header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:2.5rem; border-bottom:1px solid var(--border); padding-bottom:1.5rem; }
+  .brand { display:flex; align-items:center; gap:14px; }
+  .brand-logo { width:40px; height:40px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; color:#000; letter-spacing:-1px; }
+  .brand-text h1 { font-size:20px; font-weight:800; letter-spacing:-0.5px; line-height:1.1; }
+  .brand-text p { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; margin-top:2px; }
+  .header-meta { text-align:right; font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); line-height:1.8; }
+  .live-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ok); margin-right:5px; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .loading-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:400px; gap:16px; }
+  .spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .loading-text { font-family:'DM Mono',monospace; font-size:13px; color:var(--muted); }
+
+  .error-box { background:var(--late-bg); border:1px solid var(--late-border); border-radius:12px; padding:1.5rem 2rem; color:var(--late); font-family:'DM Mono',monospace; font-size:13px; line-height:1.8; }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:2.5rem; }
+  .stat { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.25rem 1.5rem; position:relative; overflow:hidden; animation:fadeUp .4s ease both; }
+  .stat:nth-child(1){animation-delay:.05s} .stat:nth-child(2){animation-delay:.1s} .stat:nth-child(3){animation-delay:.15s} .stat:nth-child(4){animation-delay:.2s}
+  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .stat::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+  .stat-total::before{background:var(--accent)} .stat-ok::before{background:var(--ok)} .stat-late::before{background:var(--late)} .stat-rec::before{background:var(--rec)}
+  .stat-label { font-size:11px; font-family:'DM Mono',monospace; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:.6rem; }
+  .stat-val { font-size:42px; font-weight:800; line-height:1; letter-spacing:-2px; }
+  .stat-total .stat-val{color:var(--text)} .stat-ok .stat-val{color:var(--ok)} .stat-late .stat-val{color:var(--late)} .stat-rec .stat-val{color:var(--rec)}
+  .stat-sub { font-size:11px; color:var(--muted); margin-top:.5rem; font-family:'DM Mono',monospace; }
+
+  .progress-section { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.25rem 1.5rem; margin-bottom:2.5rem; animation:fadeUp .4s .25s ease both; }
+  .progress-label { display:flex; justify-content:space-between; font-size:12px; margin-bottom:10px; }
+  .progress-label span { color:var(--muted); font-family:'DM Mono',monospace; }
+  .progress-track { height:8px; background:var(--surface2); border-radius:99px; overflow:hidden; display:flex; gap:2px; }
+  .progress-ok   { background:var(--ok);   border-radius:99px; transition:width 1s ease; }
+  .progress-late { background:var(--late); border-radius:99px; transition:width 1s ease; }
+  .progress-rec  { background:var(--rec);  border-radius:99px; transition:width 1s ease; }
+  .progress-legend { display:flex; gap:1.5rem; margin-top:10px; flex-wrap:wrap; }
+  .legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-family:'DM Mono',monospace; }
+  .legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+  .tables-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .table-full { grid-column:1/-1; }
+
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; animation:fadeUp .4s ease both; }
+  .panel-ok  { border-top:2px solid var(--ok);   animation-delay:.3s; }
+  .panel-late{ border-top:2px solid var(--late);  animation-delay:.35s; }
+  .panel-rec { border-top:2px solid var(--rec);   animation-delay:.4s; }
+
+  .panel-head { padding:1rem 1.25rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+  .panel-icon { width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .icon-ok{background:var(--ok-bg)} .icon-late{background:var(--late-bg)} .icon-rec{background:var(--rec-bg)}
+  .panel-title { flex:1; font-size:13px; font-weight:700; letter-spacing:-.2px; }
+  .panel-badge { font-size:10px; font-family:'DM Mono',monospace; padding:3px 8px; border-radius:99px; font-weight:500; }
+  .badge-ok  { background:var(--ok-bg);   color:var(--ok);   border:1px solid var(--ok-border); }
+  .badge-late{ background:var(--late-bg); color:var(--late); border:1px solid var(--late-border); }
+  .badge-rec { background:var(--rec-bg);  color:var(--rec);  border:1px solid var(--rec-border); }
+  .count-pill { font-size:12px; font-family:'DM Mono',monospace; font-weight:500; background:var(--surface2); border:1px solid var(--border); border-radius:99px; padding:2px 10px; }
+
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { padding:9px 1.25rem; text-align:left; font-size:10px; font-family:'DM Mono',monospace; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; background:var(--surface2); border-bottom:1px solid var(--border); font-weight:400; }
+  tbody td { padding:11px 1.25rem; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr { transition:background .15s; }
+  tbody tr:hover td { background:var(--surface2); }
+
+  .num-pedido { font-family:'DM Mono',monospace; font-weight:500; color:var(--accent); font-size:12px; }
+  .nombre { font-weight:600; font-size:13px; }
+  .fecha { font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); }
+  .dias-chip { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:11px; font-family:'DM Mono',monospace; font-weight:500; }
+  .dias-ok  { background:var(--ok-bg);   color:var(--ok);   border:1px solid var(--ok-border); }
+  .dias-late{ background:var(--late-bg); color:var(--late); border:1px solid var(--late-border); }
+  .dias-rec { background:var(--rec-bg);  color:var(--rec);  border:1px solid var(--rec-border); }
+
+  .bar-wrap { display:flex; align-items:center; gap:8px; }
+  .bar-track { flex:1; height:4px; background:var(--surface2); border-radius:99px; overflow:hidden; max-width:60px; }
+  .bar-fill { height:100%; border-radius:99px; }
+  .empty-state { padding:2rem; text-align:center; color:var(--muted); font-family:'DM Mono',monospace; font-size:12px; }
+
+  .refresh-btn { background:transparent; border:1px solid var(--border); color:var(--muted); font-family:'DM Mono',monospace; font-size:11px; padding:5px 14px; border-radius:99px; cursor:pointer; transition:all .2s; }
+  .refresh-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+  .footer { margin-top:2rem; display:flex; justify-content:space-between; align-items:center; font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:1rem; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <div class="brand-logo">EV</div>
+    <div class="brand-text">
+      <h1>Doas y Desistimientos</h1>
+      <p>EVVO · Control de revisiones</p>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div><span class="live-dot"></span>Conectado a Airtable</div>
+    <div id="fecha-hoy"></div>
+    <div style="margin-top:6px"><button class="refresh-btn" onclick="cargar()">↻ Actualizar</button></div>
+  </div>
+</div>
+
+<div id="main-content">
+  <div class="loading-screen">
+    <div class="spinner"></div>
+    <div class="loading-text">Conectando con Airtable...</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>Airtable · Clúster Productos EVVO · Doas y desistimientos</span>
+  <span id="ts-footer"></span>
+</div>
+
+<script>
+const TOKEN   = 'patF6gwn1S9Gux0ou.6c56e7a064b488dd8274519fae1e25bd230d97976b29fac3eaab60e8e0bfdd17';
+const BASE_ID = 'appgkdOZMlGsT4LgE';
+const TABLE_ID= 'tbltLVzw6qEStAqZ9';
+const FIELDS  = ['fldz05v8RrU1si9wG','fldfFybdouRfwnapb','fldE11jNGCPZDreFe','fldLExtHrkXlZPEkM'];
+
+function diasHabiles(d1, d2) {
+  let n=0, cur=new Date(d1+'T00:00:00'), end=new Date(d2+'T00:00:00');
+  while (cur<=end) { const d=cur.getDay(); if(d&&d<6)n++; cur.setDate(cur.getDate()+1); }
+  return n;
+}
+
+function fmt(s) {
+  if (!s) return '—';
+  const [y,m,d]=s.split('-'); return `${d}/${m}/${y}`;
+}
+
+async function fetchAirtable() {
+  let records=[], offset=null;
+  const params = FIELDS.map(f=>`fields[]=${f}`).join('&') + '&pageSize=100';
+  do {
+    const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_ID}?${params}${offset?'&offset='+offset:''}`;
+    const res  = await fetch(url, { headers:{ Authorization:`Bearer ${TOKEN}` } });
+    if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+    const data = await res.json();
+    records = records.concat(data.records||[]);
+    offset  = data.offset||null;
+  } while (offset);
+  return records;
+}
+
+function render(registros) {
+  const hoy    = new Date(); hoy.setHours(0,0,0,0);
+  const hoyStr = hoy.toISOString().slice(0,10);
+  const ayerStr= new Date(hoy.getTime()-86400000).toISOString().slice(0,10);
+
+  document.getElementById('fecha-hoy').textContent =
+    hoy.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('ts-footer').textContent =
+    'Actualizado: ' + new Date().toLocaleTimeString('es-ES');
+
+  const enPlazo=[], conRetraso=[], recientes=[];
+
+  registros.forEach(r => {
+    const f = r.cellValuesByFieldId || r.fields || {};
+    const pedido   = f['fldz05v8RrU1si9wG'] || f['Número Pedido'] || '—';
+    const cliente  = f['fldfFybdouRfwnapb'] || f['Nombre del Cliente'] || '—';
+    const recep    = f['fldE11jNGCPZDreFe'] || f['Fecha Recepción'] || null;
+    const revision = f['fldLExtHrkXlZPEkM'] || f['Fecha Revisión'] || null;
+    if (!recep) return;
+    if (!revision) {
+      const d = diasHabiles(recep, hoyStr);
+      (d<=5 ? enPlazo : conRetraso).push({pedido,cliente,recepcion:recep,revision:null,dias:d});
+    } else if (revision===hoyStr || revision===ayerStr) {
+      recientes.push({pedido,cliente,recepcion:recep,revision,dias:diasHabiles(recep,revision)});
+    }
+  });
+
+  const total  = registros.length;
+  const maxDias= Math.max(...[...enPlazo,...conRetraso,...recientes].map(r=>r.dias),1);
+  const pOk    = Math.round(enPlazo.length/total*100);
+  const pLate  = Math.round(conRetraso.length/total*100);
+  const pRec   = Math.round(recientes.length/total*100);
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="stats">
+      <div class="stat stat-total">
+        <div class="stat-label">Total pedidos</div>
+        <div class="stat-val">${total}</div>
+        <div class="stat-sub">en seguimiento</div>
+      </div>
+      <div class="stat stat-ok">
+        <div class="stat-label">En plazo</div>
+        <div class="stat-val">${enPlazo.length}</div>
+        <div class="stat-sub">≤ 5 días hábiles</div>
+      </div>
+      <div class="stat stat-late">
+        <div class="stat-label">Con retraso</div>
+        <div class="stat-val">${conRetraso.length}</div>
+        <div class="stat-sub">> 5 días hábiles</div>
+      </div>
+      <div class="stat stat-rec">
+        <div class="stat-label">Recientes</div>
+        <div class="stat-val">${recientes.length}</div>
+        <div class="stat-sub">hoy o ayer</div>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-label">
+        <span>Distribución del estado de revisiones</span>
+        <span>${pOk}% en plazo · ${pLate}% retraso · ${pRec}% recientes</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-ok"   id="bar-ok"   style="width:0%"></div>
+        <div class="progress-late" id="bar-late" style="width:0%"></div>
+        <div class="progress-rec"  id="bar-rec"  style="width:0%"></div>
+      </div>
+      <div class="progress-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--ok)"></div>En plazo</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--late)"></div>Con retraso</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--rec)"></div>Revisados hoy/ayer</div>
+      </div>
+    </div>
+
+    <div class="tables-grid">
+      <div class="panel panel-ok">
+        <div class="panel-head">
+          <div class="panel-icon icon-ok">🟢</div>
+          <div class="panel-title">Pendientes en plazo</div>
+          <span class="panel-badge badge-ok">≤ 5 días hábiles</span>
+          <span class="count-pill">${enPlazo.length}</span>
+        </div>
+        <table>
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Recepción</th><th>Días</th></tr></thead>
+          <tbody>${rowsOkLate(enPlazo,'dias-ok','var(--ok)',maxDias)}</tbody>
+        </table>
+      </div>
+
+      <div class="panel panel-late">
+        <div class="panel-head">
+          <div class="panel-icon icon-late">🔴</div>
+          <div class="panel-title">Revisiones con retraso</div>
+          <span class="panel-badge badge-late">> 5 días hábiles</span>
+          <span class="count-pill">${conRetraso.length}</span>
+        </div>
+        <table>
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Recepción</th><th>Días</th></tr></thead>
+          <tbody>${rowsOkLate(conRetraso,'dias-late','var(--late)',maxDias)}</tbody>
+        </table>
+      </div>
+
+      <div class="panel panel-rec table-full">
+        <div class="panel-head">
+          <div class="panel-icon icon-rec">🔵</div>
+          <div class="panel-title">Revisiones recientes</div>
+          <span class="panel-badge badge-rec">Hoy o ayer</span>
+          <span class="count-pill">${recientes.length}</span>
+        </div>
+        <table>
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Recepción</th><th>Fecha revisión</th><th>Días hábiles</th></tr></thead>
+          <tbody>${rowsRec(recientes)}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  setTimeout(()=>{
+    const bo=document.getElementById('bar-ok');
+    const bl=document.getElementById('bar-late');
+    const br=document.getElementById('bar-rec');
+    if(bo) bo.style.width=pOk+'%';
+    if(bl) bl.style.width=pLate+'%';
+    if(br) br.style.width=pRec+'%';
+  },100);
+}
+
+function rowsOkLate(rows, chipClass, barColor, maxDias) {
+  if (!rows.length) return '<tr><td colspan="4" class="empty-state">Sin registros</td></tr>';
+  return rows.map(r=>`
+    <tr>
+      <td><span class="num-pedido">#${r.pedido}</span></td>
+      <td><span class="nombre">${r.cliente}</span></td>
+      <td><span class="fecha">${fmt(r.recepcion)}</span></td>
+      <td>
+        <div class="bar-wrap">
+          <span class="dias-chip ${chipClass}">${r.dias}d</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100,Math.round(r.dias/maxDias*100))}%;background:${barColor}"></div></div>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function rowsRec(rows) {
+  if (!rows.length) return '<tr><td colspan="5" class="empty-state">Sin revisiones recientes</td></tr>';
+  return rows.map(r=>`
+    <tr>
+      <td><span class="num-pedido">#${r.pedido}</span></td>
+      <td><span class="nombre">${r.cliente}</span></td>
+      <td><span class="fecha">${fmt(r.recepcion)}</span></td>
+      <td><span class="fecha" style="color:var(--rec)">${fmt(r.revision)}</span></td>
+      <td><span class="dias-chip dias-rec">${r.dias}d</span></td>
+    </tr>`).join('');
+}
+
+async function cargar() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="loading-screen">
+      <div class="spinner"></div>
+      <div class="loading-text">Cargando datos de Airtable...</div>
+    </div>`;
+  try {
+    const records = await fetchAirtable();
+    render(records);
+  } catch(e) {
+    document.getElementById('main-content').innerHTML = `
+      <div class="error-box">
+        Error al conectar con Airtable:<br><br>${e.message}<br><br>
+        Verifica que el token sigue siendo válido en airtable.com/create/tokens
+      </div>`;
+  }
+}
+
+cargar();
+</script>
+</body>
+</html>
